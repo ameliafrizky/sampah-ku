@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// TABEL 1: USER
+// ============================================================
+model User {
+  id         String   @id @default(uuid())
+  nama       String
+  email      String   @unique
+  password   String
+  noHp       String   @unique
+  alamat     String?
+  poin       Int      @default(0)
+  role       String   @default("nasabah")
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  laporan            LaporanSampah[] @relation("UserLaporan")
+  laporanAdmin       LaporanSampah[] @relation("AdminLaporan")
+  transaksi          Transaksi[] @relation("AdminTransaksi")
+  notifikasi         Notifikasi[]
+  verifikasi         VerifikasiLaporan[]
+  transaksiPenukaran TransaksiPenukaran[]
+}
+
+// ============================================================
+// TABEL 2: JENIS SAMPAH
+// ============================================================
+model JenisSampah {
+  id         String   @id @default(uuid())
+  namaJenis  String   @unique
+  kategori   String
+  hargaPerKg Int
+  satuan     String   @default("kg")
+  deskripsi  String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  laporan    LaporanSampah[]
+}
+
+// ============================================================
+// TABEL 3: WILAYAH
+// ============================================================
+model Wilayah {
+  id          String   @id @default(uuid())
+  namaWilayah String   @unique
+  kecamatan   String?
+  kota        String?
+  kodePos     String?
+  deskripsi   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  jalan       Jalan[]
+  laporan     LaporanSampah[]
+}
+
+// ============================================================
+// TABEL 4: JALAN
+// ============================================================
+model Jalan {
+  id          String   @id @default(uuid())
+  namaJalan   String
+  wilayahId   String
+  deskripsi   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  wilayah     Wilayah  @relation(fields: [wilayahId], references: [id], onDelete: Cascade)
+  laporan     LaporanSampah[]
+
+  @@unique([namaJalan, wilayahId])
+}
+
+// ============================================================
+// TABEL 5: LAPORAN SAMPAH
+// ============================================================
+model LaporanSampah {
+  id            String   @id @default(uuid())
+  berat         Float
+  tanggalLapor  DateTime @default(now())
+  catatan       String?
+
+  userId        String
+  adminId       String?
+  jenisSampahId String
+  wilayahId     String
+  jalanId       String?
+
+  status        String   @default("pending")
+
+  user          User     @relation("UserLaporan", fields: [userId], references: [id], onDelete: Cascade)
+  admin         User?    @relation("AdminLaporan", fields: [adminId], references: [id], onDelete: SetNull)
+  jenisSampah   JenisSampah @relation(fields: [jenisSampahId], references: [id], onDelete: Restrict)
+  wilayah       Wilayah  @relation(fields: [wilayahId], references: [id], onDelete: Restrict)
+  jalan         Jalan?   @relation(fields: [jalanId], references: [id], onDelete: SetNull)
+
+  foto          FotoSampah?
+  transaksi     Transaksi?
+  verifikasi    VerifikasiLaporan[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ============================================================
+// TABEL 6: FOTO SAMPAH
+// ============================================================
+model FotoSampah {
+  id         String   @id @default(uuid())
+  imageUrl   String
+  deskripsi  String?
+  ukuranFile String?
+  formatFile String?
+  createdAt  DateTime @default(now())
+
+  laporanId  String?  @unique
+  laporan    LaporanSampah? @relation(fields: [laporanId], references: [id])
+}
+
+// ============================================================
+// TABEL 7: TRANSAKSI (Penjualan Sampah)
+// ============================================================
+model Transaksi {
+  id             String   @id @default(uuid())
+  kodeTransaksi  String   @unique
+  tipeTransaksi  String
+
+  laporanId      String   @unique
+  adminId        String
+
+  hargaJual      Int      @default(0)
+  poinDitukar    Int      @default(0)
+
+  status         String   @default("selesai")
+  keterangan     String?
+
+  tanggalTransaksi DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  laporan        LaporanSampah @relation(fields: [laporanId], references: [id], onDelete: Restrict)
+  admin          User     @relation("AdminTransaksi", fields: [adminId], references: [id], onDelete: Restrict)
+}
+
+// ============================================================
+// TABEL 8: NOTIFIKASI
+// ============================================================
+model Notifikasi {
+  id         String   @id @default(uuid())
+  userId     String
+  judul      String
+  pesan      String
+  isRead     Boolean  @default(false)
+  tipe       String   @default("info")
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// TABEL 9: VERIFIKASI LAPORAN (Many-to-Many)
+// ============================================================
+model VerifikasiLaporan {
+  id             String   @id @default(uuid())
+  laporanId      String
+  adminId        String
+  status         String   @default("pending")
+  catatan        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  laporan        LaporanSampah @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+  admin          User          @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@unique([laporanId, adminId])
+}
+
+// ============================================================
+// TABEL 10: TRANSAKSI PENUKARAN POIN
+// ============================================================
+model TransaksiPenukaran {
+  id                String   @id @default(uuid())
+  kodeTransaksi     String   @unique
+  userId            String
+  poinDigunakan     Int
+  hadiah            String
+  status            String   @default("sukses")
+  tanggalTransaksi  DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
