@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import path from 'path'
 
 export async function POST(request) {
   try {
@@ -31,30 +29,15 @@ export async function POST(request) {
       )
     }
     
-    // Buat nama file unik
+    // ✅ KONVERSI KE BASE64 (BIAR GA PERLU SERVER STORAGE)
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const timestamp = Date.now()
-    const randomStr = Math.random().toString(36).substring(7)
-    const extension = file.name.split('.').pop()
-    const filename = `sampah-${timestamp}-${randomStr}.${extension}`
-    
-    // Tentukan path
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-    const filePath = path.join(uploadDir, filename)
-    
-    // Buat folder jika belum ada
-    await mkdir(uploadDir, { recursive: true })
-    
-    // Simpan file
-    await writeFile(filePath, buffer)
-    
-    // Return URL
-    const url = `/uploads/${filename}`
+    const base64 = buffer.toString('base64')
+    const dataUrl = `data:${file.type};base64,${base64}`
     
     return NextResponse.json({ 
       success: true, 
-      url,
+      url: dataUrl,
       message: 'Upload berhasil!' 
     })
     
